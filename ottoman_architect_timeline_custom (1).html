@@ -1,0 +1,923 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ottoman Architects Timeline Map</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #f5f5f5;
+      font-family: 'Roboto', sans-serif;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #f5f5f5;
+    }
+
+    .panel {
+      position: absolute;
+      z-index: 9999;
+      box-sizing: border-box;
+    }
+
+    #legend {
+      top: 28px;
+      right: 24px;
+      width: 290px;
+      max-height: 72vh;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.82);
+      border: 1px solid rgba(255,255,255,0.18);
+      padding: 16px;
+      color: #fff;
+    }
+
+    #legend h3 {
+      margin: 0 0 12px 0;
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 8px 0;
+      font-size: 13px;
+      line-height: 1.2;
+      font-weight: 500;
+      color: #fff;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+      user-select: none;
+    }
+
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border: 1px solid rgba(255,255,255,0.6);
+      flex: 0 0 14px;
+      display: inline-block;
+    }
+
+    #timelineWrap {
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      width: min(92vw, 1200px);
+      padding: 18px 22px 16px 22px;
+      background:
+        linear-gradient(to bottom, rgba(124,74,18,0.18), rgba(0,0,0,0.38)),
+        rgba(24, 20, 14, 0.55);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        0 10px 30px rgba(0,0,0,0.35);
+      backdrop-filter: blur(8px);
+    }
+
+    #timelineTop {
+      position: relative;
+      height: 54px;
+      margin-bottom: 8px;
+    }
+
+    #yearBubble {
+      position: absolute;
+      left: 50%;
+      top: -2px;
+      transform: translateX(-50%);
+      background: #d86d2a;
+      color: #fff;
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 8px 14px 9px 14px;
+      border-radius: 6px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 4px 14px rgba(216,109,42,0.35);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #yearBubble::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: -9px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 9px solid #d86d2a;
+    }
+
+    #timelineScale {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 2px;
+      height: 22px;
+      pointer-events: none;
+    }
+
+    .tick {
+      position: absolute;
+      bottom: 8px;
+      width: 1px;
+      background: rgba(255,255,255,0.28);
+      transform: translateX(-0.5px);
+    }
+
+    .tick.major {
+      height: 12px;
+      background: rgba(255,255,255,0.40);
+    }
+
+    .tick.minor {
+      height: 6px;
+      background: rgba(255,255,255,0.18);
+    }
+
+    #sliderRow {
+      position: relative;
+      height: 26px;
+      margin-bottom: 8px;
+    }
+
+    #yearSlider {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      margin: 0;
+      appearance: none;
+      height: 26px;
+      background: transparent;
+      outline: none;
+      z-index: 3;
+    }
+
+    #yearSlider::-webkit-slider-runnable-track {
+      height: 2px;
+      background: rgba(255,255,255,0.16);
+      border-radius: 999px;
+    }
+
+    #yearSlider::-moz-range-track {
+      height: 2px;
+      background: rgba(255,255,255,0.16);
+      border-radius: 999px;
+    }
+
+    #yearSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #d86d2a;
+      border: 4px solid rgba(255,255,255,0.92);
+      box-shadow: 0 0 0 3px rgba(216,109,42,0.18);
+      margin-top: -8px;
+      cursor: pointer;
+    }
+
+    #yearSlider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #d86d2a;
+      border: 4px solid rgba(255,255,255,0.92);
+      box-shadow: 0 0 0 3px rgba(216,109,42,0.18);
+      cursor: pointer;
+    }
+
+    #yearLabels {
+      position: relative;
+      height: 20px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.62);
+      user-select: none;
+    }
+
+    .year-mark {
+      position: absolute;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    #controls {
+      position: absolute;
+      left: 18px;
+      top: 4px;
+      display: flex;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    #playBtn, #pauseBtn {
+      background: rgba(0,0,0,0.45);
+      color: rgba(255,255,255,0.92);
+      border: 1px solid rgba(255,255,255,0.16);
+      padding: 7px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.4px;
+      backdrop-filter: blur(4px);
+      font-family: 'Roboto', sans-serif;
+    }
+
+    #playBtn:hover, #pauseBtn:hover {
+      background: rgba(255,255,255,0.10);
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: rgba(20,20,20,0.95);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+      font-family: 'Roboto', sans-serif;
+    }
+
+    .leaflet-popup-tip {
+      background: rgba(20,20,20,0.95);
+    }
+
+    .leaflet-control-attribution {
+      background: rgba(255,255,255,0.82) !important;
+      color: rgba(60,60,60,0.8) !important;
+      font-size: 10px;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    .leaflet-control-attribution a {
+      color: rgba(30,30,30,0.9) !important;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="legend" class="panel">
+  <h3>Architect</h3>
+  <div id="legendItems"></div>
+</div>
+
+<div id="timelineWrap" class="panel">
+  <div id="controls">
+    <button id="playBtn">PLAY</button>
+    <button id="pauseBtn">PAUSE</button>
+  </div>
+
+  <div id="timelineTop">
+    <div id="yearBubble">1400</div>
+    <div id="timelineScale"></div>
+  </div>
+
+  <div id="sliderRow">
+    <input id="yearSlider" type="range" min="1400" max="1923" step="1" value="1400">
+  </div>
+
+  <div id="yearLabels"></div>
+</div>
+
+<script>
+const rawData = [{"building_name": "Beylerbeyi Palace", "architect": "Hagop Balyan", "year": 1861, "lat": 41.0425, "lon": 29.04, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#ff4d4d"}, {"building_name": "Yavuz Selim Mosque", "architect": "Mimar Sinan", "year": 1520, "lat": 41.026556, "lon": 28.951333, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Seven Saints Church, Sofia", "architect": "Mimar Sinan", "year": 1528, "lat": 42.68972, "lon": 23.32778, "location": "25, Graf Ignatiev str, Sofia", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Damascus Gate", "architect": "Mimar Sinan", "year": 1537, "lat": 31.781639, "lon": 35.2305, "location": "Jerusalem", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Muradie Mosque", "architect": "Mimar Sinan", "year": 1537, "lat": 40.469049, "lon": 19.490932, "location": "Vlorë , Vlorë County", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Vlorë Castle", "architect": "Mimar Sinan", "year": 1537, "lat": 40.455073, "lon": 19.485369, "location": "Unknown", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Haseki Sultan Complex", "architect": "Mimar Sinan", "year": 1538, "lat": 41.008556, "lon": 28.941833, "location": "Avrat Pazarı neighbourhood, Fatih district, Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Defterdar Mosque", "architect": "Mimar Sinan", "year": 1540, "lat": 41.042, "lon": 28.9376, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Hadim Ibrahim Pasha Mosque", "architect": "Mimar Sinan", "year": 1540, "lat": 41.006, "lon": 28.922694, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Tomb of Hayreddin Barbarossa", "architect": "Mimar Sinan", "year": 1541, "lat": 41.04194, "lon": 29.00694, "location": "Beşiktaş , Istanbul", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Mihrimah Sultan Mosque, Üsküdar", "architect": "Mimar Sinan", "year": 1543, "lat": 41.02667, "lon": 29.01611, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Şehzade Mosque", "architect": "Mimar Sinan", "year": 1543, "lat": 41.013806, "lon": 28.957167, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Rüstem Pasha Medrese", "architect": "Mimar Sinan", "year": 1550, "lat": 41.013167, "lon": 28.972444, "location": "Fatih, Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Süleymaniye Hamam", "architect": "Mimar Sinan", "year": 1550, "lat": 41.0159, "lon": 28.9658, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Süleymaniye Mosque", "architect": "Mimar Sinan", "year": 1550, "lat": 41.01611, "lon": 28.96389, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Al-Adiliyah Mosque", "architect": "Mimar Sinan", "year": 1551, "lat": 36.197444, "lon": 37.15775, "location": "Aleppo", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Juma-Jami Mosque", "architect": "Mimar Sinan", "year": 1552, "lat": 45.19583, "lon": 33.37722, "location": "Yevpatoria", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Rüstem Pasha Caravanserai (Ereğli)", "architect": "Mimar Sinan", "year": 1552, "lat": 37.514361, "lon": 34.050139, "location": "Ereğli, Konya , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Kanuni Bridge", "architect": "Mimar Sinan", "year": 1554, "lat": 41.68672, "lon": 26.55899, "location": "Unknown", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Sinan Pasha Mosque (Istanbul)", "architect": "Mimar Sinan", "year": 1554, "lat": 41.042343, "lon": 29.006245, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Sulaymaniyya Takiyya", "architect": "Mimar Sinan", "year": 1554, "lat": 33.5125, "lon": 36.29139, "location": "Damascus", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Kara Ahmed Pasha Mosque", "architect": "Mimar Sinan", "year": 1555, "lat": 41.02111, "lon": 28.92917, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Hürrem Sultan Hamam", "architect": "Mimar Sinan", "year": 1556, "lat": 41.00732, "lon": 28.97928, "location": "Fatih , Istanbul , Cankurtaran Mah. Ayasofya Meydanı No:2", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Caferağa Medrese", "architect": "Mimar Sinan", "year": 1557, "lat": 41.00964, "lon": 28.97883, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Karađoz Bey Mosque", "architect": "Mimar Sinan", "year": 1557, "lat": 43.34111, "lon": 17.81389, "location": "Mostar , Federation of Bosnia and Herzegovina", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "İskender Pasha Mosque, Kanlıca", "architect": "Mimar Sinan", "year": 1559, "lat": 41.10002, "lon": 29.06587, "location": "Kanlıca", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Ese Kapi Mosque", "architect": "Mimar Sinan", "year": 1560, "lat": 41.004662, "lon": 28.939911, "location": "Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Küçükçekmece Bridge", "architect": "Mimar Sinan", "year": 1560, "lat": 40.98889, "lon": 28.77222, "location": "Unknown", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Rüstem Pasha Caravanserai (Edirne)", "architect": "Mimar Sinan", "year": 1560, "lat": 41.67556, "lon": 26.55556, "location": "Edirne , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Gazi Hajdar Kadi Mosque", "architect": "Mimar Sinan", "year": 1561, "lat": 41.0349917, "lon": 21.338475, "location": "Bitola , North Macedonia", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Rüstem Pasha Mosque", "architect": "Mimar Sinan", "year": 1561, "lat": 41.0175, "lon": 28.96861, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Hajji Ahmed the Ducat Minter's Mosque", "architect": "Mimar Sinan", "year": 1562, "lat": 43.83333, "lon": 17.0, "location": "Livno", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Behram Pasha Mosque", "architect": "Mimar Sinan", "year": 1564, "lat": 37.9094, "lon": 40.2342, "location": "Sur , Diyarbakır , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Piyale Pasha Mosque", "architect": "Mimar Sinan", "year": 1565, "lat": 41.0466, "lon": 28.966, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Kanuni Sultan Suleiman bridge (Istanbul)", "architect": "Mimar Sinan", "year": 1566, "lat": 41.021944, "lon": 28.570556, "location": "Unknown", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Osman Shah Mosque", "architect": "Mimar Sinan", "year": 1566, "lat": 39.55, "lon": 21.77111, "location": "Trikala , Thessaly", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Sokollu Mehmed Pasha Mosque, Büyükçekmece", "architect": "Mimar Sinan", "year": 1566, "lat": 41.02222, "lon": 28.57611, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Selimiye Mosque, Edirne", "architect": "Mimar Sinan", "year": 1568, "lat": 41.67806, "lon": 26.55944, "location": "Edirne , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Sokollu Mehmed Pasha Mosque, Kadırga", "architect": "Mimar Sinan", "year": 1568, "lat": 41.00472, "lon": 28.97222, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Molla Çelebi Mosque", "architect": "Mimar Sinan", "year": 1570, "lat": 41.0321, "lon": 28.9906, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Atik Valide Mosque", "architect": "Mimar Sinan", "year": 1571, "lat": 41.018797, "lon": 29.023862, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Mehmed Paša Sokolović Bridge", "architect": "Mimar Sinan", "year": 1571, "lat": 43.78, "lon": 19.29, "location": "Unknown", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Pertev Pasha Mosque", "architect": "Mimar Sinan", "year": 1572, "lat": 40.7628, "lon": 29.931, "location": "İzmit , Kocaeli Province", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Sokollu Mehmed Pasha Mosque, Azapkapı", "architect": "Mimar Sinan", "year": 1573, "lat": 41.025, "lon": 28.96778, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Zal Mahmud Pasha Mosque", "architect": "Mimar Sinan", "year": 1577, "lat": 41.044778, "lon": 28.935821, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Kılıç Ali Pasha Complex", "architect": "Mimar Sinan", "year": 1578, "lat": 41.026373, "lon": 28.980928, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Şemsi Pasha Mosque", "architect": "Mimar Sinan", "year": 1580, "lat": 41.02583, "lon": 29.01139, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Mesih Mehmed Pasha Mosque", "architect": "Mimar Sinan", "year": 1584, "lat": 41.0219, "lon": 28.9434, "location": "Hırka-i Şerif, Fatih , Istanbul", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#2f80ed"}, {"building_name": "Çırağan Palace", "architect": "Nigoğayos Balyan", "year": 1863, "lat": 41.04444, "lon": 29.01667, "location": "Beşiktaş , Çırağan Caddesi 32, Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#27ae60"}, {"building_name": "Malta Kiosk", "architect": "Sarkis Balyan", "year": 1869, "lat": 41.0513, "lon": 29.0159, "location": "Unknown", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#f2994a"}, {"building_name": "Feriye Palace", "architect": "Sarkis Balyan", "year": 1871, "lat": 41.04556, "lon": 29.02028, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#f2994a"}, {"building_name": "Esma Sultan Mansion", "architect": "Sarkis Balyan", "year": 1875, "lat": 41.047481, "lon": 29.02745, "location": "Ortaköy , Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#f2994a"}, {"building_name": "Yıldız Hamidiye Mosque", "architect": "Sarkis Balyan", "year": 1884, "lat": 41.0494111, "lon": 29.0099361, "location": "Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#f2994a"}, {"building_name": "Dolmabahçe Clock Tower", "architect": "Sarkis Balyan", "year": 1890, "lat": 41.0376083, "lon": 28.9964361, "location": "Istanbul , Turkey , Dolmabahçe Palace , Dolmabahçe Caddesi", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#f2994a"}, {"building_name": "Liberation Mosque", "architect": "Sarkis Balyan", "year": 1892, "lat": 37.06028, "lon": 37.37556, "location": "Şahinbey , Gaziantep Province , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#f2994a"}, {"building_name": "Kastamonu Governor's Office", "architect": "Vedat Tek", "year": 1900, "lat": 41.37594, "lon": 33.77875, "location": "Cebrail Mah., 10 Aralık Cad. 24/1, Kastamonu , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#bb2bd9"}, {"building_name": "İzmit Clock Tower", "architect": "Vedat Tek", "year": 1900, "lat": 40.762806, "lon": 29.919611, "location": "İzmit , Turkey , Hürriyet Cad., Kemalpaşa", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#bb2bd9"}, {"building_name": "Grand Post Office", "architect": "Vedat Tek", "year": 1905, "lat": 41.014568, "lon": 28.97414, "location": "Sirkeci , Büyük Postane Cad. 25, Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#bb2bd9"}, {"building_name": "Vedat Tek House", "architect": "Vedat Tek", "year": 1913, "lat": 41.05035, "lon": 28.989323, "location": "Şişli , Vali Konağı Cd. 41, Halaskargazi Mah. 34371, Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#bb2bd9"}, {"building_name": "Aviation Martyrs' Monument", "architect": "Vedat Tek", "year": 1914, "lat": 41.0156, "lon": 28.95418, "location": "Fatih , Istanbul in Turkey [ 1 ]", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#bb2bd9"}, {"building_name": "Haliç Congress Center", "architect": "Vedat Tek", "year": 1919, "lat": 41.0503, "lon": 28.94, "location": "Beyoğlu , Istanbul , Turkey", "country": "Unknown", "province": "Unknown", "city": "Unknown", "location_from_coords": "Unknown", "color": "#bb2bd9"}];
+const colorMap = {"Hagop Balyan": "#ff4d4d", "Mimar Sinan": "#2f80ed", "Nigoğayos Balyan": "#27ae60", "Sarkis Balyan": "#f2994a", "Vedat Tek": "#bb2bd9"};
+
+const minYear = 1400;
+const maxYear = 1923;
+const LINE_ANIM_MS = 3000;
+const BETWEEN_YEARS_MS = 120;
+
+const ACTIVE_LINE_OPACITY = 0.72;
+const DIM_LINE_OPACITY = 0.10;
+const ACTIVE_POINT_OPACITY = 0.95;
+const DIM_POINT_OPACITY = 0.16;
+const ACTIVE_FILL_OPACITY = 0.95;
+const DIM_FILL_OPACITY = 0.10;
+
+const map = L.map('map', {
+  zoomControl: true,
+  worldCopyJump: true,
+  preferCanvas: false
+}).setView([30, 20], 2);
+
+L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }
+).addTo(map);
+
+const pointLayer = L.layerGroup().addTo(map);
+const lineLayer = L.layerGroup().addTo(map);
+
+const slider = document.getElementById('yearSlider');
+const yearBubble = document.getElementById('yearBubble');
+const playBtn = document.getElementById('playBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+
+const legendItemsSel = d3.select('#legendItems');
+const timelineScaleSel = d3.select('#timelineScale');
+const yearLabelsSel = d3.select('#yearLabels');
+
+const grouped = d3.group(rawData, d => d.architect);
+grouped.forEach((arr, key) => {
+  arr.sort((a, b) => d3.ascending(a.year, b.year) || d3.ascending(a.building_name || "", b.building_name || ""));
+});
+
+const lineDefs = [];
+const lineState = new Map();
+const revealedPointKeys = new Set();
+
+let currentYear = minYear;
+let playing = false;
+let playToken = 0;
+let currentAnimation = null;
+let lastVisibleBuilding = null;
+let activeArchitect = null;
+
+function buildingKey(d) {
+  return [
+    d.architect || "",
+    d.building_name || "",
+    d.year || "",
+    d.lat || "",
+    d.lon || ""
+  ].join("__");
+}
+
+function toRad(v) {
+  return v * Math.PI / 180;
+}
+
+function geoDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function curvePoints(lat1, lon1, lat2, lon2, steps = 42, bend = 0.14) {
+  const midLat = (lat1 + lat2) / 2;
+  const midLon = (lon1 + lon2) / 2;
+
+  const dx = lon2 - lon1;
+  const dy = lat2 - lat1;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist === 0) return [[lat1, lon1], [lat2, lon2]];
+
+  const px = -dy / dist;
+  const py = dx / dist;
+
+  const ctrlLat = midLat + py * dist * bend;
+  const ctrlLon = midLon + px * dist * bend;
+
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const lat = (1 - t) * (1 - t) * lat1 + 2 * (1 - t) * t * ctrlLat + t * t * lat2;
+    const lon = (1 - t) * (1 - t) * lon1 + 2 * (1 - t) * t * ctrlLon + t * t * lon2;
+    pts.push([lat, lon]);
+  }
+  return pts;
+}
+
+function nearestNeighborOrder(buildings, startBuilding) {
+  const remaining = buildings.slice();
+  const ordered = [];
+  let current = startBuilding;
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidate = remaining[i];
+      const dist = geoDistance(current.lat, current.lon, candidate.lat, candidate.lon);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+
+    const chosen = remaining.splice(bestIdx, 1)[0];
+    ordered.push(chosen);
+    current = chosen;
+  }
+
+  return ordered;
+}
+
+function buildLineDefs() {
+  lineDefs.length = 0;
+
+  Array.from(grouped.keys()).forEach(architect => {
+    const arr = grouped.get(architect);
+    if (!arr || arr.length <= 1) return;
+
+    const yearGroups = [];
+    let i = 0;
+
+    while (i < arr.length) {
+      const y = arr[i].year;
+      const group = [];
+      while (i < arr.length && arr[i].year === y) {
+        group.push(arr[i]);
+        i++;
+      }
+      yearGroups.push(group);
+    }
+
+    const orderedBuildings = [yearGroups[0][0]];
+    let currentBuilding = yearGroups[0][0];
+
+    for (let g = 1; g < yearGroups.length; g++) {
+      const orderedGroup = nearestNeighborOrder(yearGroups[g].slice(), currentBuilding);
+      orderedGroup.forEach(b => orderedBuildings.push(b));
+      currentBuilding = orderedGroup[orderedGroup.length - 1];
+    }
+
+    for (let k = 0; k < orderedBuildings.length - 1; k++) {
+      const fromBuilding = orderedBuildings[k];
+      const toBuilding = orderedBuildings[k + 1];
+
+      lineDefs.push({
+        key: architect + "__" + fromBuilding.year + "__" + (fromBuilding.building_name || "") + "__" + toBuilding.year + "__" + (toBuilding.building_name || ""),
+        architect: architect,
+        startYear: fromBuilding.year,
+        year: toBuilding.year,
+        color: fromBuilding.color,
+        from: fromBuilding,
+        to: toBuilding,
+        points: curvePoints(fromBuilding.lat, fromBuilding.lon, toBuilding.lat, toBuilding.lon, 42, 0.14)
+      });
+    }
+  });
+
+  lineDefs.sort((a, b) => d3.ascending(a.year, b.year) || d3.ascending(a.startYear, b.startYear));
+}
+
+function revealBuilding(d) {
+  revealedPointKeys.add(buildingKey(d));
+}
+
+function clearRevealedBuildings() {
+  revealedPointKeys.clear();
+}
+
+function getInitialBuildingsUpToYear(y) {
+  const incoming = new Set();
+  lineDefs.forEach(def => {
+    if (def.year <= y) incoming.add(buildingKey(def.to));
+  });
+  return rawData.filter(d => d.year <= y && !incoming.has(buildingKey(d)));
+}
+
+function rebuildRevealedPointsUpToYear(y) {
+  clearRevealedBuildings();
+  getInitialBuildingsUpToYear(y).forEach(d => revealBuilding(d));
+  lineDefs.forEach(def => {
+    if (def.year <= y && lineState.has(def.key)) revealBuilding(def.to);
+  });
+}
+
+function addLineInstant(def) {
+  if (lineState.has(def.key)) return lineState.get(def.key).polyline;
+
+  const isVisible = activeArchitect === null || def.architect === activeArchitect;
+
+  const polyline = L.polyline(def.points, {
+    color: def.color,
+    weight: 2,
+    opacity: isVisible ? ACTIVE_LINE_OPACITY : DIM_LINE_OPACITY,
+    smoothFactor: 1,
+    interactive: false
+  }).addTo(lineLayer);
+
+  lineState.set(def.key, {
+    polyline: polyline,
+    def: def,
+    fullyDrawn: true
+  });
+
+  return polyline;
+}
+
+function updateLineStyles() {
+  lineState.forEach((state) => {
+    const def = state.def;
+    const isVisible = activeArchitect === null || def.architect === activeArchitect;
+    state.polyline.setStyle({
+      opacity: isVisible ? ACTIVE_LINE_OPACITY : DIM_LINE_OPACITY
+    });
+  });
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function cancelCurrentAnimation() {
+  if (currentAnimation && typeof currentAnimation.stop === "function") {
+    currentAnimation.stop();
+  }
+  currentAnimation = null;
+}
+
+function animateLineProgressive(def, duration = 3000, token = null) {
+  return new Promise(resolve => {
+    if (lineState.has(def.key)) {
+      revealBuilding(def.to);
+      renderPoints(currentYear);
+      updateLineStyles();
+      resolve();
+      return;
+    }
+
+    const isVisible = activeArchitect === null || def.architect === activeArchitect;
+
+    const polyline = L.polyline([def.points[0]], {
+      color: def.color,
+      weight: 2,
+      opacity: isVisible ? ACTIVE_LINE_OPACITY : DIM_LINE_OPACITY,
+      smoothFactor: 1,
+      interactive: false
+    }).addTo(lineLayer);
+
+    const state = {
+      polyline: polyline,
+      def: def,
+      fullyDrawn: false
+    };
+    lineState.set(def.key, state);
+
+    const interpolator = d3.interpolateNumber(0, def.points.length - 1);
+    const start = performance.now();
+
+    const timer = d3.timer(() => {
+      if (token !== null && token !== playToken) {
+        timer.stop();
+        if (lineState.has(def.key)) {
+          lineLayer.removeLayer(polyline);
+          lineState.delete(def.key);
+        }
+        if (currentAnimation && currentAnimation.key === def.key) currentAnimation = null;
+        resolve();
+        return;
+      }
+
+      const elapsed = performance.now() - start;
+      const t = Math.min(1, elapsed / duration);
+      const maxIndex = Math.max(1, Math.floor(interpolator(t)));
+      polyline.setLatLngs(def.points.slice(0, maxIndex + 1));
+
+      if (t >= 1) {
+        timer.stop();
+        polyline.setLatLngs(def.points);
+        state.fullyDrawn = true;
+        revealBuilding(def.to);
+        renderPoints(currentYear);
+        updateLineStyles();
+        if (currentAnimation && currentAnimation.key === def.key) currentAnimation = null;
+        resolve();
+      }
+    });
+
+    currentAnimation = {
+      key: def.key,
+      stop: () => timer.stop()
+    };
+  });
+}
+
+function removeLine(def) {
+  if (!lineState.has(def.key)) return;
+  const polyline = lineState.get(def.key).polyline;
+  lineLayer.removeLayer(polyline);
+  lineState.delete(def.key);
+}
+
+function getLinesForYear(y) {
+  return lineDefs.filter(def => def.year === y);
+}
+
+function removeLinesAfterYear(y) {
+  lineDefs.forEach(def => {
+    if (def.year > y) removeLine(def);
+  });
+}
+
+function ensureLinesUpToYear(y) {
+  lineDefs.forEach(def => {
+    if (def.year <= y && !lineState.has(def.key)) addLineInstant(def);
+  });
+}
+
+function findLastVisibleBuildingUpToYear(y) {
+  let last = null;
+
+  lineDefs.forEach(def => {
+    if (def.year <= y && lineState.has(def.key)) {
+      if (!last || def.to.year > last.year) last = def.to;
+    }
+  });
+
+  if (!last) {
+    const visibleInitials = getInitialBuildingsUpToYear(y);
+    if (visibleInitials.length > 0) last = visibleInitials[visibleInitials.length - 1];
+  }
+
+  return last;
+}
+
+function orderDefsByNearest(defs, referenceBuilding) {
+  if (!defs || defs.length <= 1) return defs.slice();
+
+  const remaining = defs.slice();
+  const ordered = [];
+
+  let ref = referenceBuilding
+    ? { lat: referenceBuilding.lat, lon: referenceBuilding.lon }
+    : { lat: remaining[0].from.lat, lon: remaining[0].from.lon };
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const d = remaining[i];
+      const dist = geoDistance(ref.lat, ref.lon, d.to.lat, d.to.lon);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+
+    const chosen = remaining.splice(bestIdx, 1)[0];
+    ordered.push(chosen);
+    ref = { lat: chosen.to.lat, lon: chosen.to.lon };
+  }
+
+  return ordered;
+}
+
+async function animateLinesForYear(y, token) {
+  let defs = getLinesForYear(y).filter(def => !lineState.has(def.key));
+  if (defs.length === 0) return;
+  if (token !== null && token !== playToken) return;
+
+  defs = orderDefsByNearest(defs, lastVisibleBuilding);
+
+  for (const def of defs) {
+    if (token !== null && token !== playToken) return;
+    await animateLineProgressive(def, LINE_ANIM_MS, token);
+    if (token !== null && token !== playToken) return;
+    lastVisibleBuilding = def.to;
+  }
+}
+
+function renderPoints(y) {
+  pointLayer.clearLayers();
+
+  grouped.forEach((arr, architect) => {
+    arr.filter(d => d.year <= y).forEach(d => {
+      if (!revealedPointKeys.has(buildingKey(d))) return;
+
+      const isVisible = activeArchitect === null || architect === activeArchitect;
+
+      const marker = L.circleMarker([d.lat, d.lon], {
+        radius: 5,
+        color: d.color,
+        weight: 1,
+        fillColor: d.color,
+        fillOpacity: isVisible ? ACTIVE_FILL_OPACITY : DIM_FILL_OPACITY,
+        opacity: isVisible ? ACTIVE_POINT_OPACITY : DIM_POINT_OPACITY
+      });
+
+      marker.bindPopup(
+        "<b>" + d.building_name + "</b><br>" +
+        "Architect: " + d.architect + "<br>" +
+        "Year: " + d.year
+      );
+
+      marker.addTo(pointLayer);
+    });
+  });
+}
+
+function updateTimelineUI(y) {
+  yearBubble.textContent = y;
+  const pct = (y - minYear) / (maxYear - minYear);
+  const left = pct * slider.offsetWidth;
+  yearBubble.style.left = left + "px";
+}
+
+async function setYear(targetYear, options) {
+  options = options || {};
+  const animateNewLines = options.animateNewLines !== undefined ? options.animateNewLines : true;
+  const token = options.token !== undefined ? options.token : null;
+
+  targetYear = Math.max(minYear, Math.min(maxYear, targetYear));
+  const previousYear = currentYear;
+  currentYear = targetYear;
+
+  if (targetYear < previousYear) {
+    cancelCurrentAnimation();
+    removeLinesAfterYear(targetYear);
+    rebuildRevealedPointsUpToYear(targetYear);
+    lastVisibleBuilding = findLastVisibleBuildingUpToYear(targetYear);
+    renderPoints(targetYear);
+    updateLineStyles();
+    updateTimelineUI(targetYear);
+    return;
+  }
+
+  if (targetYear > previousYear) {
+    ensureLinesUpToYear(targetYear - 1);
+    rebuildRevealedPointsUpToYear(targetYear - 1);
+    if (!lastVisibleBuilding) lastVisibleBuilding = findLastVisibleBuildingUpToYear(targetYear - 1);
+  }
+
+  renderPoints(previousYear);
+  updateLineStyles();
+  updateTimelineUI(targetYear);
+
+  if (targetYear > previousYear) {
+    if (animateNewLines) {
+      await animateLinesForYear(targetYear, token);
+    } else {
+      ensureLinesUpToYear(targetYear);
+      rebuildRevealedPointsUpToYear(targetYear);
+      renderPoints(targetYear);
+      updateLineStyles();
+      lastVisibleBuilding = findLastVisibleBuildingUpToYear(targetYear);
+    }
+  } else {
+    rebuildRevealedPointsUpToYear(targetYear);
+    renderPoints(targetYear);
+    updateLineStyles();
+    lastVisibleBuilding = findLastVisibleBuildingUpToYear(targetYear);
+  }
+}
+
+function updateLegendSelectionUI() {
+  legendItemsSel.selectAll('.legend-item')
+    .style('opacity', d => (activeArchitect === null || activeArchitect === d) ? 1 : 0.35)
+    .style('font-weight', d => activeArchitect === d ? 700 : 500);
+}
+
+function makeLegend() {
+  const names = Array.from(grouped.keys()).sort(d3.ascending);
+
+  const items = legendItemsSel
+    .selectAll('.legend-item')
+    .data(names, d => d);
+
+  items.enter()
+    .append('div')
+    .attr('class', 'legend-item')
+    .each(function(name) {
+      const item = d3.select(this);
+      item.append('div')
+        .attr('class', 'legend-color')
+        .style('background', colorMap[name]);
+
+      item.append('div')
+        .style('display', 'inline-block')
+        .style('flex', '1')
+        .text(name);
+    })
+    .on('click', function(event, name) {
+      activeArchitect = activeArchitect === name ? null : name;
+      updateLegendSelectionUI();
+      updateLineStyles();
+      renderPoints(currentYear);
+    });
+
+  items.exit().remove();
+  updateLegendSelectionUI();
+}
+
+function buildTimelineDecor() {
+  const majorTicks = d3.range(minYear, maxYear + 1, 10);
+  const minorTicks = d3.range(minYear, maxYear + 1, 5).filter(y => y % 10 !== 0);
+  const labelYears = [1400,1450,1500,1550,1600,1650,1700,1750,1800,1850,1900];
+
+  timelineScaleSel.selectAll('*').remove();
+  yearLabelsSel.selectAll('*').remove();
+
+  timelineScaleSel.selectAll('.tick.major')
+    .data(majorTicks)
+    .enter()
+    .append('div')
+    .attr('class', 'tick major')
+    .style('left', y => (((y - minYear) / (maxYear - minYear)) * 100) + '%');
+
+  timelineScaleSel.selectAll('.tick.minor')
+    .data(minorTicks)
+    .enter()
+    .append('div')
+    .attr('class', 'tick minor')
+    .style('left', y => (((y - minYear) / (maxYear - minYear)) * 100) + '%');
+
+  yearLabelsSel.selectAll('.year-mark')
+    .data(labelYears)
+    .enter()
+    .append('div')
+    .attr('class', 'year-mark')
+    .style('left', y => (((y - minYear) / (maxYear - minYear)) * 100) + '%')
+    .text(d => d);
+}
+
+function initializeScene() {
+  ensureLinesUpToYear(currentYear);
+  rebuildRevealedPointsUpToYear(currentYear);
+  renderPoints(currentYear);
+  updateLineStyles();
+  updateTimelineUI(currentYear);
+  lastVisibleBuilding = findLastVisibleBuildingUpToYear(currentYear);
+}
+
+d3.select(slider).on('input', async function() {
+  stopAnimation();
+  const target = +this.value;
+
+  if (target < currentYear) {
+    await setYear(target, { animateNewLines: false });
+  } else {
+    await setYear(target, { animateNewLines: true, token: playToken });
+  }
+});
+
+d3.select(window).on('resize', function() {
+  updateTimelineUI(currentYear);
+});
+
+async function startAnimation() {
+  if (playing) return;
+
+  playing = true;
+  playToken += 1;
+  const token = playToken;
+
+  while (playing && token === playToken && currentYear < maxYear) {
+    const nextYear = currentYear + 1;
+    slider.value = nextYear;
+
+    await setYear(nextYear, {
+      animateNewLines: true,
+      token: token
+    });
+
+    if (!playing || token !== playToken) return;
+    await wait(BETWEEN_YEARS_MS);
+  }
+
+  playing = false;
+}
+
+function stopAnimation() {
+  playing = false;
+  playToken += 1;
+  cancelCurrentAnimation();
+}
+
+d3.select(playBtn).on('click', startAnimation);
+d3.select(pauseBtn).on('click', stopAnimation);
+
+makeLegend();
+buildTimelineDecor();
+buildLineDefs();
+initializeScene();
+</script>
+
+</body>
+</html>
